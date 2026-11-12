@@ -50,12 +50,25 @@ async def test_server_tools(mock_client: PlantNetClient) -> None:
     assert "identify_plant_image" in tool_names
     assert "identify_plant_batch" in tool_names
     assert "list_supported_projects" in tool_names
+    assert "verify_plant_provenance" in tool_names
 
     res = await server.call_tool(
-        "identify_plant_image", {"image_source": "https://example.com/leaf.jpg", "organ": "leaf"}
+        "identify_plant_image",
+        {
+            "image_source": "https://example.com/leaf.jpg",
+            "organ": "leaf",
+            "target_region": "Mexico",
+        },
     )
     assert "Monstera deliciosa" in res.content[0].text
     assert "GBIF ID" in res.content[0].text
+    assert "Provenance" in res.content[0].text
+
+    res = await server.call_tool(
+        "verify_plant_provenance",
+        {"scientific_name": "Taraxacum officinale", "target_region": "North America"},
+    )
+    assert "INTRODUCED" in res.content[0].text
 
     res = await server.call_tool(
         "identify_plant_batch", {"images": ["https://example.com/leaf.jpg"]}

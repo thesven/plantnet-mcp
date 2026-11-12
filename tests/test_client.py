@@ -114,3 +114,22 @@ def test_error_handling() -> None:
     client2 = PlantNetClient(api_key="key", transport=httpx.MockTransport(handler_bad_json))
     with pytest.raises(PlantNetError, match="Invalid JSON"):
         client2.identify_plant_image("https://example.com/test.jpg")
+
+
+def test_verify_plant_provenance() -> None:
+    client = PlantNetClient(api_key=None)
+
+    # Native test
+    native_res = client.verify_plant_provenance("Monstera deliciosa", "Mexico")
+    assert native_res["status"] == "NATIVE"
+
+    # Introduced test
+    intro_res = client.verify_plant_provenance("Taraxacum officinale", "North America")
+    assert intro_res["status"] == "INTRODUCED"
+
+    # Attached provenance via identify_plant_image
+    id_res = client.identify_plant_image(
+        "https://example.com/photo.jpg", target_region="North America"
+    )
+    assert "provenance" in id_res
+    assert id_res["provenance"]["status"] in ["NATIVE", "INTRODUCED"]

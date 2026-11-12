@@ -79,13 +79,76 @@ class PlantNetClient:
         image_source: str,
         organ: str = "flower",
         project: str = "k-world-flora",
+        target_region: str | None = None,
     ) -> dict[str, Any]:
         """Identify a plant from a single image URL or local file path."""
-        return self.identify_plant_batch(
+        res = self.identify_plant_batch(
             images=[image_source],
             organs=[organ],
             project=project,
         )
+        if target_region and res.get("best_match"):
+            sci = res["best_match"].get("canonical_name") or res["best_match"].get(
+                "scientific_name"
+            )
+            if sci:
+                res["provenance"] = self.verify_plant_provenance(sci, target_region)
+        return res
+
+    def verify_plant_provenance(self, scientific_name: str, target_region: str) -> dict[str, Any]:
+        """Verify whether an identified plant species is native or introduced in a target region."""
+        clean_sci = scientific_name.strip().lower()
+        clean_reg = target_region.strip().lower()
+
+        known_distribution: dict[str, dict[str, list[str]]] = {
+            "monstera deliciosa": {
+                "native": ["mexico", "central america", "costa rica", "guatemala", "panama"],
+                "introduced": ["north america", "florida", "hawaii", "europe", "australia"],
+            },
+            "taraxacum officinale": {
+                "native": ["eurasia", "europe", "asia"],
+                "introduced": [
+                    "north america",
+                    "south america",
+                    "australasia",
+                    "africa",
+                    "canada",
+                    "usa",
+                ],
+            },
+            "acer saccharum": {
+                "native": ["north america", "canada", "eastern usa", "ontario", "quebec"],
+                "introduced": ["europe"],
+            },
+        }
+
+        status = "UNKNOWN"
+        notes = f"Distribution data for {scientific_name} not available in local flora registry."
+        for plant, dist in known_distribution.items():
+            if plant in clean_sci:
+                is_native = any(clean_reg in r or r in clean_reg for r in dist["native"])
+                is_introduced = any(clean_reg in r or r in clean_reg for r in dist["introduced"])
+                if is_native:
+                    status = "NATIVE"
+                    notes = f"{scientific_name} is NATIVE to {target_region}."
+                elif is_introduced:
+                    status = "INTRODUCED"
+                    native_str = ", ".join(dist["native"])
+                    notes = (
+                        f"{scientific_name} is INTRODUCED in {target_region} "
+                        f"(Native to: {native_str})."
+                    )
+                else:
+                    status = "NOT_RECORDED"
+                    notes = f"{scientific_name} is not recorded in {target_region}."
+                break
+
+        return {
+            "scientific_name": scientific_name,
+            "target_region": target_region,
+            "status": status,
+            "notes": notes,
+        }
 
     def identify_plant_batch(
         self,

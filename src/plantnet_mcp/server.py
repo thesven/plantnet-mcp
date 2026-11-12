@@ -34,6 +34,11 @@ def _format_plant_summary(result: dict[str, Any]) -> str:
     ]
     if best.get("gbif_id"):
         lines.append(f"GBIF ID: {best.get('gbif_id')} | POWO ID: {best.get('powo_id', 'N/A')}")
+    if "provenance" in result:
+        prov = result["provenance"]
+        lines.append(
+            f"Provenance ({prov.get('target_region')}): [{prov.get('status')}] {prov.get('notes')}"
+        )
     return "\n".join(lines)
 
 
@@ -52,10 +57,16 @@ def create_server(client: PlantNetClient | None = None) -> MCPServer:
         image_source: str,
         organ: str = "flower",
         project: str = "k-world-flora",
+        target_region: str | None = None,
     ) -> dict[str, Any]:
-        """Identify plant species from an image URL or local file path."""
+        """Identify plant species from an image URL or local file path with provenance check."""
         try:
-            res = api.identify_plant_image(image_source=image_source, organ=organ, project=project)
+            res = api.identify_plant_image(
+                image_source=image_source,
+                organ=organ,
+                project=project,
+                target_region=target_region,
+            )
             res["summary"] = _format_plant_summary(res)
             return res
         except PlantNetError as exc:
@@ -64,6 +75,20 @@ def create_server(client: PlantNetClient | None = None) -> MCPServer:
                 "results": [],
                 "summary": f"Plant identification failed: {exc}",
             }
+
+    @server.tool()
+    def verify_plant_provenance(scientific_name: str, target_region: str) -> dict[str, Any]:
+        """Verify whether an identified plant species is native or introduced in a target region."""
+        try:
+            prov = api.verify_plant_provenance(
+                scientific_name=scientific_name, target_region=target_region
+            )
+            st = prov.get("status")
+            nt = prov.get("notes")
+            summary = f"Provenance for {scientific_name} in {target_region}: [{st}] {nt}"
+            return {"provenance": prov, "summary": summary}
+        except PlantNetError as exc:
+            return {"error": str(exc), "summary": f"Provenance check failed: {exc}"}
 
     @server.tool()
     def identify_plant_batch(

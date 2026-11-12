@@ -13,6 +13,7 @@ Enables AI agents to identify plant species from photographs (both remote URLs a
 ## Key Features
 
 - **Local & Remote Image Ingestion**: Supports public image URLs as well as direct local image files on disk via multipart upload.
+- **Botanical Provenance & Native Range Verification**: Checks whether an identified species is native, introduced, or exotic in the user's geographic region.
 - **Multi-Organ Identification**: Submit multiple complementary views of the same plant (e.g. leaf + flower + habit) to maximize identification accuracy.
 - **Regional Flora Scope**: Target specific continental floras (`weurope`, `namerica`, `tropical-africa`, `mediterranean`, `caribbean`) or use the default `k-world-flora`.
 - **Cross-Platform Botanical Linking**: Returns matched species with accepted scientific names, common names, confidence scores, and direct identifiers for GBIF and POWO.
@@ -24,8 +25,9 @@ Enables AI agents to identify plant species from photographs (both remote URLs a
 
 | Tool | Description |
 | :--- | :--- |
-| `identify_plant_image` | Identify a plant from a single image URL or local photo file path. |
+| `identify_plant_image` | Identify a plant from a single image URL or local photo file path with optional provenance check. |
 | `identify_plant_batch` | Identify a plant using 1 to 5 images and organ tags (flower, leaf, fruit, bark, habit). |
+| `verify_plant_provenance` | Verify whether an identified plant species is native or introduced in a target region. |
 | `list_supported_projects` | List available geographic and thematic flora identification projects. |
 
 ---

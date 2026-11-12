@@ -75,6 +75,7 @@ async def main() -> None:
                 "identify_plant_image",
                 "identify_plant_batch",
                 "list_supported_projects",
+                "verify_plant_provenance",
             }
             missing = expected_tools - tool_names
             assert expected_tools.issubset(tool_names), f"Missing tools: {missing}"
