@@ -133,3 +133,40 @@ def test_verify_plant_provenance() -> None:
     )
     assert "provenance" in id_res
     assert id_res["provenance"]["status"] in ["NATIVE", "INTRODUCED"]
+
+
+def test_supported_organs_and_species_search() -> None:
+    client = PlantNetClient(api_key=None)
+    organs = client.get_supported_organs()
+    assert "flower" in organs
+    assert "leaf" in organs
+
+    # Offline search
+    search_res = client.search_project_species(query="Monstera")
+    assert search_res["total_matches"] >= 1
+    assert search_res["species"][0]["scientific_name"] == "Monstera deliciosa"
+
+    with pytest.raises(PlantNetError, match="Search query cannot be empty"):
+        client.search_project_species("   ")
+
+    # API species search
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v2/species"
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "scientificNameWithoutAuthor": "Quercus alba",
+                    "scientificNameAuthorship": "L.",
+                    "family": {"scientificNameWithoutAuthor": "Fagaceae"},
+                    "commonNames": ["White Oak"],
+                    "powoId": "12345",
+                    "gbifId": 67890,
+                }
+            ],
+        )
+
+    api_client = PlantNetClient(api_key="api-token", transport=httpx.MockTransport(handler))
+    api_res = api_client.search_project_species("Quercus")
+    assert api_res["total_matches"] == 1
+    assert api_res["species"][0]["scientific_name"] == "Quercus alba"

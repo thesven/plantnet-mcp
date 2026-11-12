@@ -116,6 +116,33 @@ def create_server(client: PlantNetClient | None = None) -> MCPServer:
         summary = "\n".join(lines)
         return {"projects": projects, "summary": summary}
 
+    @server.tool()
+    def get_supported_organs() -> dict[str, Any]:
+        """List accepted botanical organ types with identification accuracy guidance."""
+        organs = api.get_supported_organs()
+        lines = [f"- {organ}: {desc}" for organ, desc in organs.items()]
+        summary = "\n".join(lines)
+        return {"organs": organs, "summary": summary}
+
+    @server.tool()
+    def search_project_species(
+        query: str,
+        project: str = "k-world-flora",
+        limit: int = 25,
+    ) -> dict[str, Any]:
+        """Search registered botanical species in a regional flora project."""
+        try:
+            res = api.search_project_species(query=query, project=project, limit=limit)
+            species_list = res.get("species", [])
+            lines = [f"Found {len(species_list)} species matching '{query}' in {project}:"]
+            for sp in species_list[:10]:
+                comms = ", ".join(sp.get("common_names", [])[:2]) or "No common name"
+                lines.append(f"- {sp.get('scientific_name')} ({sp.get('family')}) - {comms}")
+            res["summary"] = "\n".join(lines)
+            return res
+        except PlantNetError as exc:
+            return {"error": str(exc), "species": [], "summary": f"Species search failed: {exc}"}
+
     return server
 
 

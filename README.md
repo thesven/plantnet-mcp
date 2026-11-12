@@ -29,6 +29,8 @@ Enables AI agents to identify plant species from photographs (both remote URLs a
 | `identify_plant_batch` | Identify a plant using 1 to 5 images and organ tags (flower, leaf, fruit, bark, habit). |
 | `verify_plant_provenance` | Verify whether an identified plant species is native or introduced in a target region. |
 | `list_supported_projects` | List available geographic and thematic flora identification projects. |
+| `get_supported_organs` | List accepted botanical organ types with identification accuracy guidance. |
+| `search_project_species` | Search registered botanical species in a regional flora project. |
 
 ---
 

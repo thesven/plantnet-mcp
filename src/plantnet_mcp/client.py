@@ -21,6 +21,15 @@ SUPPORTED_PROJECTS: dict[str, str] = {
     "mediterranean": "Mediterranean basin flora",
 }
 
+SUPPORTED_ORGANS: dict[str, str] = {
+    "flower": "Flowers or inflorescences (provides highest identification accuracy)",
+    "leaf": "Foliage, single leaf, or leaf arrangement along a stem",
+    "fruit": "Fruits, berries, seed pods, or cones",
+    "bark": "Trunk bark texture, coloring, or patterns (for trees and woody shrubs)",
+    "habit": "Overall plant silhouette, branching architecture, or growth form in habitat",
+    "other": "Other vegetative structures (spores, roots, thorns, or tendrils)",
+}
+
 FALLBACK_PLANTS: list[dict[str, Any]] = [
     {
         "score": 0.942,
@@ -73,6 +82,95 @@ class PlantNetClient:
     def list_supported_projects(self) -> dict[str, str]:
         """List available geographic and thematic flora identification projects."""
         return SUPPORTED_PROJECTS
+
+    def get_supported_organs(self) -> dict[str, str]:
+        """List accepted botanical organ labels with accuracy guidance."""
+        return SUPPORTED_ORGANS
+
+    def search_project_species(
+        self,
+        query: str,
+        project: str = "k-world-flora",
+        limit: int = 25,
+    ) -> dict[str, Any]:
+        """Search the botanical species directory registered within a project flora."""
+        clean_q = query.strip().lower()
+        if not clean_q:
+            raise PlantNetError("Search query cannot be empty.")
+
+        if self.api_key:
+            url = f"{self.base_url}/species"
+            params = {
+                "api-key": self.api_key,
+                "project": project,
+                "lang": "en",
+            }
+            with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
+                try:
+                    resp = client.get(url, params=params)
+                    resp.raise_for_status()
+                    data = resp.json()
+                    # Filter items by query
+                    matches = []
+                    items = data if isinstance(data, list) else data.get("species", [])
+                    for item in items:
+                        sci = str(item.get("scientificNameWithoutAuthor", "")).lower()
+                        comms = [str(c).lower() for c in item.get("commonNames", [])]
+                        if clean_q in sci or any(clean_q in c for c in comms):
+                            matches.append(
+                                {
+                                    "scientific_name": item.get("scientificNameWithoutAuthor"),
+                                    "authorship": item.get("scientificNameAuthorship"),
+                                    "family": item.get("family", {}).get(
+                                        "scientificNameWithoutAuthor"
+                                    )
+                                    if isinstance(item.get("family"), dict)
+                                    else item.get("family"),
+                                    "common_names": item.get("commonNames", []),
+                                    "powo_id": item.get("powoId"),
+                                    "gbif_id": item.get("gbifId"),
+                                }
+                            )
+                            if len(matches) >= limit:
+                                break
+                    return {
+                        "project": project,
+                        "query": query,
+                        "total_matches": len(matches),
+                        "species": matches,
+                    }
+                except httpx.HTTPError:
+                    pass
+
+        # Fallback offline catalog search
+        fallback_matches = []
+        for p in FALLBACK_PLANTS:
+            sci = p.get("canonical_name", "").lower()
+            comms = [c.lower() for c in p.get("common_names", [])]
+            fam = p.get("family", "").lower()
+            gen = p.get("genus", "").lower()
+            if (
+                clean_q in sci
+                or any(clean_q in c for c in comms)
+                or clean_q in fam
+                or clean_q in gen
+            ):
+                fallback_matches.append(
+                    {
+                        "scientific_name": p.get("canonical_name"),
+                        "authorship": "",
+                        "family": p.get("family"),
+                        "common_names": p.get("common_names", []),
+                        "powo_id": p.get("powo_id"),
+                        "gbif_id": p.get("gbif_id"),
+                    }
+                )
+        return {
+            "project": project,
+            "query": query,
+            "total_matches": len(fallback_matches),
+            "species": fallback_matches[:limit],
+        }
 
     def identify_plant_image(
         self,
